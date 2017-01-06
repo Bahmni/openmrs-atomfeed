@@ -1,24 +1,16 @@
 package org.openmrs.module.atomfeed.advice;
 
 import org.ict4h.atomfeed.server.repository.jdbc.AllEventRecordsQueueJdbcImpl;
-import org.ict4h.atomfeed.server.service.Event;
 import org.ict4h.atomfeed.server.service.EventService;
 import org.ict4h.atomfeed.server.service.EventServiceImpl;
-import org.ict4h.atomfeed.transaction.AFTransactionWorkWithoutResult;
-import org.joda.time.DateTime;
-import org.openmrs.PatientProgram;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.atomfeed.transaction.support.AtomFeedSpringTransactionManager;
-import org.springframework.aop.AfterReturningAdvice;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import java.lang.reflect.Method;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.UUID;
 
-public class PatientProgramAdvice implements AfterReturningAdvice {
+public class PatientProgramAdvice extends BaseAdvice {
     private static final String CATEGORY = "programenrollment";
     private static final String TITLE = "Progam Enrollment";
     private static final String SAVE_PATIENT_PROGRAM_METHOD = "savePatientProgram";
@@ -35,28 +27,32 @@ public class PatientProgramAdvice implements AfterReturningAdvice {
     }
 
     @Override
-    public void afterReturning(Object returnValue, Method method, Object[] arguments, Object target) throws Throwable {
-        if (method.getName().equals(SAVE_PATIENT_PROGRAM_METHOD) && shouldRaiseRelationshipEvent()) {
-            String contents = getUrlPattern().replace("{uuid}",((PatientProgram) returnValue).getUuid());
-            final Event event = new Event(UUID.randomUUID().toString(), TITLE, DateTime.now(), (URI) null, contents, CATEGORY);
-
-            getAFTxManager().executeWithTransaction(
-                    new AFTransactionWorkWithoutResult() {
-                        @Override
-                        protected void doInTransaction() {
-                            getEventService().notify(event);
-                        }
-
-                        @Override
-                        public PropagationDefinition getTxPropagationDefinition() {
-                            return PropagationDefinition.PROPAGATION_REQUIRED;
-                        }
-                    }
-            );
-        }
+    protected String getDefaultUrlTemplate() {
+        return DEFAULT_PATIENT_PROGRAM_URL_PATTERN;
     }
 
-    private EventService getEventService() {
+    @Override
+    protected String getMethodName() {
+        return SAVE_PATIENT_PROGRAM_METHOD;
+    }
+
+    @Override
+    protected String getEventTitle() {
+        return TITLE;
+    }
+
+    @Override
+    protected String getEventCategory() {
+        return CATEGORY;
+    }
+
+    @Override
+    protected String getEventRaiseFlagGlobalProperty() {
+        return RAISE_PATIENT_PROGRAM_EVENT_GLOBAL_PROPERTY;
+    }
+
+    @Override
+    protected EventService getEventService() {
         if (eventService == null) {                // Single Checked
             synchronized (eventServiceMonitor) {
                 if (eventService == null) {        // Double checked
@@ -67,10 +63,11 @@ public class PatientProgramAdvice implements AfterReturningAdvice {
         return this.eventService;
     }
 
-    private AtomFeedSpringTransactionManager getAFTxManager() {
+    @Override
+    protected AtomFeedSpringTransactionManager getAFTxManager() {
         if (this.atomFeedSpringTransactionManager == null) {
             synchronized (txManagerMonitor) {
-                if(this.atomFeedSpringTransactionManager == null) {
+                if (this.atomFeedSpringTransactionManager == null) {
                     this.atomFeedSpringTransactionManager = new AtomFeedSpringTransactionManager(getSpringPlatformTransactionManager());
                 }
             }
@@ -78,17 +75,9 @@ public class PatientProgramAdvice implements AfterReturningAdvice {
         return this.atomFeedSpringTransactionManager;
     }
 
-    private boolean shouldRaiseRelationshipEvent() {
-        String raiseEvent = Context.getAdministrationService().getGlobalProperty(RAISE_PATIENT_PROGRAM_EVENT_GLOBAL_PROPERTY);
-        return Boolean.valueOf(raiseEvent);
-    }
-
-    private String getUrlPattern() {
-        String urlPattern = Context.getAdministrationService().getGlobalProperty(PATIENT_PROGRAM_EVENT_URL_PATTERN_GLOBAL_PROPERTY);
-        if (urlPattern == null || urlPattern.equals("")) {
-            return DEFAULT_PATIENT_PROGRAM_URL_PATTERN;
-        }
-        return urlPattern;
+    @Override
+    protected String getUrlTemplateGlobalProperty() {
+        return PATIENT_PROGRAM_EVENT_URL_PATTERN_GLOBAL_PROPERTY;
     }
 
     private PlatformTransactionManager getSpringPlatformTransactionManager() {

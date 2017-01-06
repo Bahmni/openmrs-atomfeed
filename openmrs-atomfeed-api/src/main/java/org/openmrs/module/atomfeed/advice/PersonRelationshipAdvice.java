@@ -2,24 +2,16 @@ package org.openmrs.module.atomfeed.advice;
 
 import org.ict4h.atomfeed.server.repository.AllEventRecordsQueue;
 import org.ict4h.atomfeed.server.repository.jdbc.AllEventRecordsQueueJdbcImpl;
-import org.ict4h.atomfeed.server.service.Event;
 import org.ict4h.atomfeed.server.service.EventService;
 import org.ict4h.atomfeed.server.service.EventServiceImpl;
-import org.ict4h.atomfeed.transaction.AFTransactionWorkWithoutResult;
-import org.joda.time.DateTime;
-import org.openmrs.Relationship;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.atomfeed.transaction.support.AtomFeedSpringTransactionManager;
-import org.springframework.aop.AfterReturningAdvice;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import java.lang.reflect.Method;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.UUID;
 
-public class PersonRelationshipAdvice implements AfterReturningAdvice {
+public class PersonRelationshipAdvice extends BaseAdvice {
     private static final String CATEGORY = "relationship";
     private static final String TITLE = "Relationship";
     private static final String SAVE_RELATIONSHIP_METHOD = "saveRelationship";
@@ -36,38 +28,43 @@ public class PersonRelationshipAdvice implements AfterReturningAdvice {
     }
 
     @Override
-    public void afterReturning(Object returnValue, Method method, Object[] arguments, Object target) throws Throwable {
-        if (method.getName().equals(SAVE_RELATIONSHIP_METHOD) && shouldRaiseRelationshipEvent()) {
-            String contents = String.format(getUrlPattern(), ((Relationship) returnValue).getUuid());
-            final Event event = new Event(UUID.randomUUID().toString(), TITLE, DateTime.now(), (URI) null, contents, CATEGORY);
-
-            atomFeedSpringTransactionManager.executeWithTransaction(
-                    new AFTransactionWorkWithoutResult() {
-                        @Override
-                        protected void doInTransaction() {
-                            eventService.notify(event);
-                        }
-
-                        @Override
-                        public PropagationDefinition getTxPropagationDefinition() {
-                            return PropagationDefinition.PROPAGATION_REQUIRED;
-                        }
-                    }
-            );
-        }
+    protected String getDefaultUrlTemplate() {
+        return DEFAULT_RELATIONSHIP_URL_PATTERN;
     }
 
-    private boolean shouldRaiseRelationshipEvent() {
-        String raiseEvent = Context.getAdministrationService().getGlobalProperty(RAISE_RELATIONSHIP_EVENT_GLOBAL_PROPERTY);
-        return Boolean.valueOf(raiseEvent);
+    @Override
+    protected String getMethodName() {
+        return SAVE_RELATIONSHIP_METHOD;
     }
 
-    private String getUrlPattern() {
-        String urlPattern = Context.getAdministrationService().getGlobalProperty(RELATIONSHIP_EVENT_URL_PATTERN_GLOBAL_PROPERTY);
-        if (urlPattern == null || urlPattern.equals("")) {
-            return DEFAULT_RELATIONSHIP_URL_PATTERN;
-        }
-        return urlPattern;
+    @Override
+    protected String getEventTitle() {
+        return TITLE;
+    }
+
+    @Override
+    protected String getEventCategory() {
+        return CATEGORY;
+    }
+
+    @Override
+    protected String getEventRaiseFlagGlobalProperty() {
+        return RAISE_RELATIONSHIP_EVENT_GLOBAL_PROPERTY;
+    }
+
+    @Override
+    protected EventService getEventService() {
+        return eventService;
+    }
+
+    @Override
+    protected AtomFeedSpringTransactionManager getAFTxManager() {
+        return atomFeedSpringTransactionManager;
+    }
+
+    @Override
+    protected String getUrlTemplateGlobalProperty() {
+        return RELATIONSHIP_EVENT_URL_PATTERN_GLOBAL_PROPERTY;
     }
 
     private PlatformTransactionManager getSpringPlatformTransactionManager() {
