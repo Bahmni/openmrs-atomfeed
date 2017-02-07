@@ -8,24 +8,28 @@ import org.openmrs.api.context.Context;
 import org.openmrs.module.atomfeed.transaction.support.AtomFeedSpringTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import java.sql.SQLException;
 import java.util.List;
 
-public class PatientAdvice extends BaseAdvice {
-    private static final String TEMPLATE = "/openmrs/ws/rest/v1/patient/{uuid}?v=full";
-    private static final String CATEGORY = "patient";
-    private static final String TITLE = "Patient";
+public class LocationAdvice extends BaseAdvice {
+    private static final String CATEGORY = "location";
+    private static final String TITLE = "Location";
+    private static final String SAVE_METHOD = "saveLocation";
+    private static final String TEMPLATE = "/openmrs/ws/rest/v1/location/{uuid}?v=full";
     private static final String eventRaiseFlagGP = "atomfeed.publish.eventsForLocation";
     private static final String urlTemplateGP = "atomfeed.publish.urlTemplateForLocation";
-    private static final String SAVE_PATIENT_METHOD = "savePatient";
-    private AtomFeedSpringTransactionManager atomFeedSpringTransactionManager;
-    private EventService eventService;
+    private final AtomFeedSpringTransactionManager atomFeedSpringTransactionManager;
+    private final EventService eventService;
 
-    public PatientAdvice() throws SQLException {
+    public LocationAdvice() {
         atomFeedSpringTransactionManager = new AtomFeedSpringTransactionManager(getSpringPlatformTransactionManager());
         AllEventRecordsQueue allEventRecordsQueue = new AllEventRecordsQueueJdbcImpl(atomFeedSpringTransactionManager);
 
         this.eventService = new EventServiceImpl(allEventRecordsQueue);
+    }
+
+    public LocationAdvice(EventService eventService,AtomFeedSpringTransactionManager transactionManager) {
+        this.atomFeedSpringTransactionManager = transactionManager;
+        this.eventService = eventService;
     }
 
     @Override
@@ -35,7 +39,7 @@ public class PatientAdvice extends BaseAdvice {
 
     @Override
     protected String getMethodName() {
-        return SAVE_PATIENT_METHOD;
+        return SAVE_METHOD;
     }
 
     @Override
@@ -47,6 +51,8 @@ public class PatientAdvice extends BaseAdvice {
     protected String getEventCategory() {
         return CATEGORY;
     }
+
+
 
     @Override
     protected String getEventRaiseFlagGlobalProperty() {

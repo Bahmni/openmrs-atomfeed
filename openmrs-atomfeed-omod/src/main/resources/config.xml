@@ -43,6 +43,11 @@
         <class>org.openmrs.module.atomfeed.advice.EncounterSaveAdvice</class>
     </advice>
 
+	<advice>
+		<point>org.openmrs.api.LocationService</point>
+		<class>org.openmrs.module.atomfeed.advice.LocationAdvice</class>
+	</advice>
+
     <!-- Adds link to admin page -->
 	<extension>
 		<point>org.openmrs.admin.list</point>
